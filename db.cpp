@@ -3,6 +3,8 @@
 
 using namespace std;
 
+int nMinimumHeight = 0;
+
 void CAddrInfo::Update(bool good) {
   uint32_t now = time(NULL);
   if (ourLastTry == 0)
@@ -70,7 +72,7 @@ int CAddrDb::Lookup_(const CService &ip) {
   return -1;
 }
 
-void CAddrDb::Good_(const CService &addr, int clientV, std::string clientSV, int blocks) {
+void CAddrDb::Good_(const CService &addr, int clientV, std::string clientSV, int blocks, uint64_t services) {
   int id = Lookup_(addr);
   if (id == -1) return;
   unkId.erase(id);
@@ -79,6 +81,7 @@ void CAddrDb::Good_(const CService &addr, int clientV, std::string clientSV, int
   info.clientVersion = clientV;
   info.clientSubVersion = clientSV;
   info.blocks = blocks;
+  info.services = services;
   info.Update(true);
   if (info.IsGood() && goodId.count(id)==0) {
     goodId.insert(id);
@@ -146,13 +149,8 @@ void CAddrDb::Add_(const CAddress &addr, bool force) {
   }
   if (ipToId.count(ipp)) {
     CAddrInfo &ai = idToInfo[ipToId[ipp]];
-    if (addr.nTime > ai.lastTry || ai.services != addr.nServices)
-    {
-      ai.lastTry = addr.nTime;
-      ai.services |= addr.nServices;
-//      john
-        printf("%s: updated\n", ToString(addr).c_str());
-    }
+    if (addr.nTime > ai.lastTry) ai.lastTry = addr.nTime;
+    // Do not update ai.nServices (data from VERSION from the peer itself is better than random ADDR rumours).
     if (force) {
       ai.ignoreTill = 0;
     }
@@ -175,7 +173,7 @@ void CAddrDb::Add_(const CAddress &addr, bool force) {
   nDirty++;
 }
 
-void CAddrDb::GetIPs_(set<CNetAddr>& ips, int max, const bool* nets) {
+void CAddrDb::GetIPs_(set<CNetAddr>& ips, uint64_t requestedFlags, int max, const bool* nets) {
   if (goodId.size() == 0) {
     int id = -1;
     if (ourId.size() == 0) {
@@ -184,23 +182,28 @@ void CAddrDb::GetIPs_(set<CNetAddr>& ips, int max, const bool* nets) {
     } else {
       id = *ourId.begin();
     }
-    if (id >= 0) {
+    if (id >= 0 && (idToInfo[id].services & requestedFlags) == requestedFlags) {
       ips.insert(idToInfo[id].ip);
     }
     return;
   }
-  if (max > goodId.size() / 2)
-    max = goodId.size() / 2;
+  std::vector<int> goodIdFiltered;
+  for (std::set<int>::const_iterator it = goodId.begin(); it != goodId.end(); it++) {
+    if ((idToInfo[*it].services & requestedFlags) == requestedFlags)
+      goodIdFiltered.push_back(*it);
+  }
+
+  if (!goodIdFiltered.size())
+    return;
+
+  if (max > goodIdFiltered.size() / 2)
+    max = goodIdFiltered.size() / 2;
   if (max < 1)
     max = 1;
-  int low = *goodId.begin();
-  int high = *goodId.rbegin();
+
   set<int> ids;
   while (ids.size() < max) {
-    int range = high-low+1;
-    int pos = low + (rand() % range);
-    int id = *(goodId.lower_bound(pos));
-    ids.insert(id);
+    ids.insert(goodIdFiltered[rand() % goodIdFiltered.size()]);
   }
   for (set<int>::const_iterator it = ids.begin(); it != ids.end(); it++) {
     CService &ip = idToInfo[*it].ip;

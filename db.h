@@ -14,9 +14,10 @@
 
 #define REQUIRE_VERSION 80000
 
+extern int nMinimumHeight;
 static inline int GetRequireHeight(const bool testnet = fTestNet)
 {
-    return testnet ? 0 : 300000;
+    return nMinimumHeight ? nMinimumHeight : (testnet ? 0 : 300000);
 }
 
 std::string static inline ToString(const CService &ip) {
@@ -183,6 +184,7 @@ public:
 
 struct CServiceResult {
     CService service;
+    uint64_t services;
     bool fGood;
     int nBanTime;
     int nHeight;
@@ -215,11 +217,11 @@ protected:
   void Add_(const CAddress &addr, bool force);   // add an address
   bool Get_(CServiceResult &ip, int& wait);      // get an IP to test (must call Good_, Bad_, or Skipped_ on result afterwards)
   bool GetMany_(std::vector<CServiceResult> &ips, int max, int& wait);
-  void Good_(const CService &ip, int clientV, std::string clientSV, int blocks); // mark an IP as good (must have been returned by Get_)
+  void Good_(const CService &ip, int clientV, std::string clientSV, int blocks, uint64_t services); // mark an IP as good (must have been returned by Get_)
   void Bad_(const CService &ip, int ban);  // mark an IP as bad (and optionally ban it) (must have been returned by Get_)
   void Skipped_(const CService &ip);       // mark an IP as skipped (must have been returned by Get_)
   int Lookup_(const CService &ip);         // look up id of an IP
-  void GetIPs_(std::set<CNetAddr>& ips, int max, const bool *nets); // get a random set of IPs (shared lock only)
+  void GetIPs_(std::set<CNetAddr>& ips, uint64_t requestedFlags, int max, const bool *nets); // get a random set of IPs (shared lock only)
 
 public:
   std::map<CService, time_t> banned; // nodes that are banned, with their unban time (a)
@@ -281,7 +283,7 @@ public:
       } else {
         CAddrDb *db = const_cast<CAddrDb*>(this);
         db->nId = 0;
-        int n;
+        int n = 0;
         READWRITE(n);
         for (int i=0; i<n; i++) {
           CAddrInfo info;
@@ -315,9 +317,9 @@ public:
       for (int i=0; i<vAddr.size(); i++)
         Add_(vAddr[i], fForce);
   }
-  void Good(const CService &addr, int clientVersion, std::string clientSubVersion, int blocks) {
+  void Good(const CService &addr, int clientVersion, std::string clientSubVersion, int blocks, uint64_t services) {
     CRITICAL_BLOCK(cs)
-      Good_(addr, clientVersion, clientSubVersion, blocks);
+      Good_(addr, clientVersion, clientSubVersion, blocks, services);
   }
   void Skipped(const CService &addr) {
     CRITICAL_BLOCK(cs)
@@ -330,6 +332,7 @@ public:
   bool Get(CServiceResult &ip, int& wait) {
     CRITICAL_BLOCK(cs)
       return Get_(ip, wait);
+    return false;
   }
   void GetMany(std::vector<CServiceResult> &ips, int max, int& wait) {
     CRITICAL_BLOCK(cs) {
@@ -346,15 +349,15 @@ public:
     CRITICAL_BLOCK(cs) {
       for (int i=0; i<ips.size(); i++) {
         if (ips[i].fGood) {
-          Good_(ips[i].service, ips[i].nClientV, ips[i].strClientV, ips[i].nHeight);
+          Good_(ips[i].service, ips[i].nClientV, ips[i].strClientV, ips[i].nHeight, ips[i].services);
         } else {
           Bad_(ips[i].service, ips[i].nBanTime);
         }
       }
     }
   }
-  void GetIPs(std::set<CNetAddr>& ips, int max, const bool *nets) {
+  void GetIPs(std::set<CNetAddr>& ips, uint64_t requestedFlags, int max, const bool *nets) {
     SHARED_CRITICAL_BLOCK(cs)
-      GetIPs_(ips, max, nets);
+      GetIPs_(ips, requestedFlags, max, nets);
   }
 };

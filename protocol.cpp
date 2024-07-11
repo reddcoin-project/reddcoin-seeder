@@ -22,6 +22,8 @@ static const char* ppszTypeName[] =
     "block",
 };
 
+unsigned short nDefaultP2Port = 0;
+
 unsigned char pchMessageStart[4] = { 0xfb, 0xc0, 0xb6, 0xdb };
 
 CMessageHeader::CMessageHeader()
@@ -36,7 +38,9 @@ CMessageHeader::CMessageHeader()
 CMessageHeader::CMessageHeader(const char* pszCommand, unsigned int nMessageSizeIn)
 {
     memcpy(pchMessageStart, ::pchMessageStart, sizeof(pchMessageStart));
-    strncpy(pchCommand, pszCommand, COMMAND_SIZE);
+    size_t command_len = strnlen(pszCommand, COMMAND_SIZE);
+    memcpy(pchCommand, pszCommand, command_len);
+    memset(pchCommand + command_len, 0, COMMAND_SIZE - command_len);
     nMessageSize = nMessageSizeIn;
     nChecksum = 0;
 }

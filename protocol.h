@@ -16,9 +16,10 @@
 #include "uint256.h"
 
 extern bool fTestNet;
+extern unsigned short nDefaultP2Port;
 static inline unsigned short GetDefaultPort(const bool testnet = fTestNet)
 {
-    return testnet ? 55444 : 45444;
+    return nDefaultP2Port ? nDefaultP2Port : (testnet ? 55444 : 45444);
 }
 
 //
@@ -60,6 +61,11 @@ class CMessageHeader
 enum
 {
     NODE_NETWORK = (1 << 0),
+    NODE_BLOOM = (1 << 2),
+    NODE_WITNESS = (1 << 3),
+    NODE_COMPACT_FILTERS = (1 << 6),
+    NODE_NETWORK_LIMITED = (1 << 10),
+    NODE_P2P_V2 = (1 << 11),
 };
 
 class CAddress : public CService
