@@ -460,10 +460,11 @@ extern "C" void* ThreadStats(void*) {
     if (first)
     {
       first = false;
-      printf("\n\n\n\x1b[3A");
+      printf("\x1b[9;1H");
     }
     else
-      printf("\x1b[2K\x1b[u");
+      printf("\x1b[9;1H\x1b[2K");
+
     printf("\x1b[s");
     uint64_t requests = 0;
     uint64_t queries = 0;
@@ -516,7 +517,8 @@ int main(int argc, char **argv) {
   setbuf(stdout, NULL);
   CDnsSeedOpts opts;
   opts.ParseCommandLine(argc, argv);
-  printf("Supporting whitelisted filters: ");
+  printf("\x1b[1;1H\x1b[2J");
+  printf("\n\x1b[1;34m[INFO]\x1b[0m Supporting whitelisted filters: ");
   for (std::set<uint64_t>::const_iterator it = opts.filter_whitelist.begin(); it != opts.filter_whitelist.end(); it++) {
       if (it != opts.filter_whitelist.begin()) {
           printf(",");
@@ -527,27 +529,27 @@ int main(int argc, char **argv) {
   if (opts.tor) {
     CService service(opts.tor, 9050);
     if (service.IsValid()) {
-      printf("Using Tor proxy at %s\n", service.ToStringIPPort().c_str());
+      printf("\x1b[1;32m[✓]\x1b[0m Using Tor proxy at %s\n", service.ToStringIPPort().c_str());
       SetProxy(NET_TOR, service);
     }
   }
   if (opts.ipv4_proxy) {
     CService service(opts.ipv4_proxy, 9050);
     if (service.IsValid()) {
-      printf("Using IPv4 proxy at %s\n", service.ToStringIPPort().c_str());
+     printf("\x1b[1;32m[✓]\x1b[0m Using IPv4 proxy at %s\n", service.ToStringIPPort().c_str());
       SetProxy(NET_IPV4, service);
     }
   }
   if (opts.ipv6_proxy) {
     CService service(opts.ipv6_proxy, 9050);
     if (service.IsValid()) {
-      printf("Using IPv6 proxy at %s\n", service.ToStringIPPort().c_str());
+      printf("\x1b[1;32m[✓]\x1b[0m Using IPv6 proxy at %s\n", service.ToStringIPPort().c_str());
       SetProxy(NET_IPV6, service);
     }
   }
   bool fDNS = true;
   if (opts.fUseTestNet) {
-      printf("Using testnet.\n");
+      printf("\x1b[1;33m[TESTNET]\x1b[0m Using testnet.\n");
       pchMessageStart[0] = 0xfe;
       pchMessageStart[1] = 0xc3;
       pchMessageStart[2] = 0xb9;
@@ -556,11 +558,11 @@ int main(int argc, char **argv) {
       fTestNet = true;
   }
   if (opts.nP2Port) {
-    printf("Using P2P port %i\n", opts.nP2Port);
+    printf("\x1b[1;34m[INFO]\x1b[0m Using P2P port: %i\n", opts.nP2Port);
     nDefaultP2Port = opts.nP2Port;
   }
   if (opts.magic) {
-    printf("Using magic %s\n", opts.magic);
+    printf("\x1b[1;34m[INFO]\x1b[0m Using magic: %s\n", opts.magic);
     for (int n=0; n<4; ++n) {
       unsigned int c = 0;
       sscanf(&opts.magic[n*2], "%2x", &c);
@@ -568,15 +570,15 @@ int main(int argc, char **argv) {
     }
   }
   if (opts.nMinimumHeight) {
-    printf("Using minimum height %i\n", opts.nMinimumHeight);
+    printf("\x1b[1;34m[INFO]\x1b[0m Using minimum height: %i\n", opts.nMinimumHeight);
     nMinimumHeight = opts.nMinimumHeight;
   }
     if (opts.nRequiredVersion) {
-		printf("Using minimum version: %i\n", opts.nRequiredVersion);
+		printf("\x1b[1;34m[INFO]\x1b[0m Using minimum version: %i\n", opts.nRequiredVersion);
 		nRequiredVersion = opts.nRequiredVersion;
 	}
   if (!opts.vSeeds.empty()) {
-    printf("Overriding DNS seeds\n");
+    printf("\x1b[1;34m[INFO]\x1b[0m Overriding DNS seeds.\n");
     swap(opts.vSeeds, vSeeds);
   } else {
     for (int i=0; seeds[i][0]; i++) {
@@ -584,44 +586,44 @@ int main(int argc, char **argv) {
     }
   }
   if (!opts.ns) {
-    printf("No nameserver set. Not starting DNS server.\n");
+    printf("\x1b[1;31m[WARNING]\x1b[0m No nameserver set. Not starting DNS server.\n");
     fDNS = false;
   }
   if (fDNS && !opts.host) {
-    fprintf(stderr, "No hostname set. Please use -h.\n");
+    fprintf(stderr, "\x1b[1;31m[ERROR]\x1b[0m No hostname set. Please use -h.\n");
     exit(1);
   }
   if (fDNS && !opts.mbox) {
-    fprintf(stderr, "No e-mail address set. Please use -m.\n");
+    fprintf(stderr, "\x1b[1;31m[ERROR]\x1b[0m No e-mail address set. Please use -m.\n");
     exit(1);
   }
   FILE *f = fopen("dnsseed.dat","r");
   if (f) {
-    printf("Loading dnsseed.dat...");
+    printf("\x1b[1;34m[INFO]\x1b[0m Loading dnsseed.dat...");
     CAutoFile cf(f);
     cf >> db;
     if (opts.fWipeBan)
         db.banned.clear();
     if (opts.fWipeIgnore)
         db.ResetIgnores();
-    printf("done\n");
+    printf(" \x1b[1;32mdone\x1b[0m\n");
   }
   pthread_t threadDns, threadSeed, threadDump, threadStats;
   if (fDNS) {
-    printf("Starting %i DNS threads for %s on %s (port %i)...", opts.nDnsThreads, opts.host, opts.ns, opts.nPort);
+    printf("\x1b[1;34m[INFO]\x1b[0m Starting %i DNS threads for %s on %s (port %i)...\n", opts.nDnsThreads, opts.host, opts.ns, opts.nPort);
     dnsThread.clear();
     for (int i=0; i<opts.nDnsThreads; i++) {
       dnsThread.push_back(new CDnsThread(&opts, i));
       pthread_create(&threadDns, NULL, ThreadDNS, dnsThread[i]);
-      printf(".");
+      printf("\x1b[1;32m.\x1b[0m");
       Sleep(20);
     }
-    printf("done\n");
+    printf(" \x1b[1;32mdone\x1b[0m\n");
   }
   printf("Starting seeder...");
   pthread_create(&threadSeed, NULL, ThreadSeeder, NULL);
-  printf("done\n");
-  printf("Starting %i crawler threads...", opts.nThreads);
+  printf("\x1b[1;32mdone\x1b[0m\n");
+  printf("\x1b[1;34m[INFO]\x1b[0m Starting %i crawler threads... ", opts.nThreads);
   pthread_attr_t attr_crawler;
   pthread_attr_init(&attr_crawler);
   pthread_attr_setstacksize(&attr_crawler, 0x20000);
@@ -630,7 +632,8 @@ int main(int argc, char **argv) {
     pthread_create(&thread, &attr_crawler, ThreadCrawler, &opts.nThreads);
   }
   pthread_attr_destroy(&attr_crawler);
-  printf("done\n");
+  printf("\x1b[1;32mdone\x1b[0m\n");
+
   pthread_create(&threadStats, NULL, ThreadStats, NULL);
   pthread_create(&threadDump, NULL, ThreadDumper, NULL);
   void* res;
