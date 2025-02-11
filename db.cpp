@@ -138,7 +138,7 @@ void CAddrDb::Add_(const CAddress &addr, bool force) {
   CService ipp(addr);
   //filter addresses that dont run on the default port john
   if (ipp.GetPort() != GetDefaultPort()) {
-    printf("%s: dropped. not using default port.\n", ToString(ipp).c_str());
+    // printf("%s: dropped. not using default port.\n", ToString(ipp).c_str());
     return;
   }
   if (banned.count(ipp)) {
@@ -169,7 +169,7 @@ void CAddrDb::Add_(const CAddress &addr, bool force) {
   ipToId[ipp] = id;
 //  john
 //  printf("%s: added\n", ToString(ipp).c_str(), ipToId[ipp]);
-  printf("%s: added to unknown list.\n", ToString(ipp).c_str());
+  // printf("%s: added to unknown list.\n", ToString(ipp).c_str());
   unkId.insert(id);
   nDirty++;
 }
